@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kerala Local Explorer | Discovery & Navigation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0f172a; color: #f1f5f9; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        .accent-gradient { background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); }
+        #map { height: 400px; border-radius: 1rem; z-index: 10; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body x-data="explorerApp()">
+
+    <header class="sticky top-0 z-50 glass px-6 py-4 mb-6">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold bg-clip-text text-transparent accent-gradient">Kerala Local Explorer</h1>
+                <p class="text-xs text-slate-400">Discover God's Own Country</p>
+            </div>
+            
+            <div class="flex flex-1 max-w-md gap-2">
+                <input type="text" x-model="searchQuery" placeholder="Search districts, food, or hidden gems..." 
+                    class="w-full bg-slate-800 border border-slate-700 rounded-full px-5 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+            </div>
+        </div>
+
+        <div class="max-w-7xl mx-auto flex gap-2 overflow-x-auto py-4 no-scrollbar">
+            <template x-for="cat in categories">
+                <button @click="activeCategory = cat" 
+                    :class="activeCategory === cat ? 'accent-gradient text-white' : 'bg-slate-800 text-slate-300'"
+                    class="px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap"
+                    x-text="cat"></button>
+            </template>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-12 gap-6 pb-12">
+        
+        <div class="lg:col-span-5 xl:col-span-4 space-y-4">
+            <div class="sticky top-40">
+                <div id="map" class="shadow-2xl border border-slate-700"></div>
+                <div class="mt-4 glass p-5 rounded-2xl" x-show="selectedPlace">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-[10px] uppercase tracking-widest text-blue-400 font-bold" x-text="selectedPlace.category"></span>
+                            <h2 class="text-xl font-bold" x-text="selectedPlace.name"></h2>
+                        </div>
+                        <span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs font-bold">★ <span x-text="selectedPlace.rating"></span></span>
+                    </div>
+                    <p class="text-slate-400 text-sm mt-2" x-text="selectedPlace.desc"></p>
+                    <div class="mt-4 flex gap-2">
+                        <button @click="openExternalMap(selectedPlace)" class="flex-1 accent-gradient py-2 rounded-lg text-sm font-semibold hover:opacity-90">Navigate Now</button>
+                    </div>
+                </div>
+                <div class="mt-4 text-center text-slate-500 text-sm" x-show="!selectedPlace">
+                    Select a location to start navigating
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-7 xl:col-span-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <template x-for="place in filteredPlaces" :key="place.id">
+                    <div @click="selectPlace(place)" 
+                        class="glass p-4 rounded-2xl cursor-pointer hover:border-blue-500/50 transition-all group relative overflow-hidden">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 class="font-bold group-hover:text-blue-400 transition-colors" x-text="place.name"></h3>
+                                <p class="text-xs text-slate-500" x-text="place.district"></p>
+                            </div>
+                            <span class="text-xs font-semibold text-slate-400" x-text="'★ ' + place.rating"></span>
+                        </div>
+                        <p class="text-sm text-slate-400 line-clamp-2" x-text="place.desc"></p>
+                        <div class="mt-3 flex items-center justify-between">
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-700 text-slate-300" x-text="place.category"></span>
+                            <span class="text-blue-500 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View Details →</span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function explorerApp() {
+            return {
+                searchQuery: '',
+                activeCategory: 'All',
+                selectedPlace: null,
+                map: null,
+                marker: null,
+                categories: ['All', 'Tourist Places', 'Food Spots', 'Hill Stations', 'Beaches', 'Backwaters', 'Hidden Gems'],
+                
+                // Representative Dataset
+                places: [
+                    { id: 1, name: "Kovalam Beach", district: "Thiruvananthapuram", category: "Beaches", lat: 8.4020, lng: 76.9784, rating: 4.8, desc: "Iconic crescent beach with a famous lighthouse and calm waters." },
+                    { id: 2, name: "Munnar Tea Gardens", district: "Idukki", category: "Hill Stations", lat: 10.0889, lng: 77.0595, rating: 4.9, desc: "Rolling hills covered in emerald green tea plantations and cool mist." },
+                    { id: 3, name: "Alappuzha Backwaters", district: "Alappuzha", category: "Backwaters", lat: 9.4981, lng: 76.3329, rating: 4.7, desc: "The Venice of the East. Stay in luxury houseboats on serene canals." },
+                    { id: 4, name: "Fort Kochi", district: "Ernakulam", category: "Tourist Places", lat: 9.9648, lng: 76.2421, rating: 4.6, desc: "Colonial charm, Chinese fishing nets, and trendy art cafes." },
+                    { id: 5, name: "Paragon Biryani", district: "Kozhikode", category: "Food Spots", lat: 11.2588, lng: 75.7804, rating: 4.9, desc: "Legendary spot for authentic Malabar Biryani and seafood." },
+                    { id: 6, name: "Banasura Sagar Dam", district: "Wayanad", category: "Hidden Gems", lat: 11.6667, lng: 75.9242, rating: 4.5, desc: "India's largest earth dam with stunning trekking trails." },
+                    { id: 7, name: "Athirappilly Falls", district: "Thrissur", category: "Tourist Places", lat: 10.2851, lng: 76.5698, rating: 4.8, desc: "The 'Niagara of India', a majestic waterfall deep in the forest." },
+                    { id: 8, name: "Bekal Fort", district: "Kasaragod", category: "Tourist Places", lat: 12.3908, lng: 75.0402, rating: 4.6, desc: "Giant keyhole-shaped fort overlooking the Arabian Sea." },
+                    { id: 9, name: "Nelliyampathy Hills", district: "Palakkad", category: "Hill Stations", lat: 10.5342, lng: 76.6935, rating: 4.4, desc: "Orange farms and breathtaking cloud-shrouded viewpoints." },
+                    { id: 10, name: "Varkala Cliff", district: "Thiruvananthapuram", category: "Beaches", lat: 8.7371, lng: 76.7032, rating: 4.7, desc: "Unique red sandstone cliffs adjacent to the pristine beach." },
+                    { id: 11, name: "Jatayu Earth's Center", district: "Kollam", category: "Tourist Places", lat: 8.8625, lng: 76.8647, rating: 4.8, desc: "World's largest bird sculpture and adventure park." },
+                    { id: 12, name: "Vagamon Meadows", district: "Kottayam", category: "Hill Stations", lat: 9.6912, lng: 76.9048, rating: 4.5, desc: "Velvet green meadows and pine forests perfect for picnics." },
+                    { id: 13, name: "Konni Elephant Camp", district: "Pathanamthitta", category: "Hidden Gems", lat: 9.2250, lng: 76.8481, rating: 4.3, desc: "Historic training center for elephants and eco-tourism hub." },
+                    { id: 14, name: "Muzhappilangad Drive-in Beach", district: "Kannur", category: "Beaches", lat: 11.7925, lng: 75.4544, rating: 4.6, desc: "Asia's longest drive-in beach, perfect for sunset cruises." },
+                    { id: 15, name: "Tejaswini River Rafting", district: "Kasaragod", category: "Hidden Gems", lat: 12.2045, lng: 75.3621, rating: 4.4, desc: "White water rafting through dense tropical landscapes." },
+                    { id: 16, name: "Kottakkal Arya Vaidya Sala", district: "Malappuram", category: "Tourist Places", lat: 11.0022, lng: 75.9934, rating: 4.7, desc: "The global center for authentic Ayurvedic healing." }
+                ],
+
+                get filteredPlaces() {
+                    return this.places.filter(p => {
+                        const matchesSearch = p.name.toLowerCase().includes(this.searchQuery.toLowerCase()) || 
+                                              p.district.toLowerCase().includes(this.searchQuery.toLowerCase());
+                        const matchesCat = this.activeCategory === 'All' || p.category === this.activeCategory;
+                        return matchesSearch && matchesCat;
+                    });
+                },
+
+                init() {
+                    this.map = L.map('map', { zoomControl: false }).setView([10.8505, 76.2711], 7);
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                        attribution: '&copy; OpenStreetMap contributors'
+                    }).addTo(this.map);
+                    
+                    // Add markers for all initially
+                    this.places.forEach(p => {
+                        L.circleMarker([p.lat, p.lng], {
+                            radius: 6,
+                            fillColor: "#3b82f6",
+                            color: "#fff",
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(this.map).bindPopup(p.name);
+                    });
+                },
+
+                selectPlace(place) {
+                    this.selectedPlace = place;
+                    this.map.flyTo([place.lat, place.lng], 12, { duration: 1.5 });
+                    
+                    if (this.marker) this.map.removeLayer(this.marker);
+                    
+                    this.marker = L.marker([place.lat, place.lng]).addTo(this.map)
+                        .bindPopup(`<b>${place.name}</b><br>${place.district}`).openPopup();
+                },
+
+                openExternalMap(place) {
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`, '_blank');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
