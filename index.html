@@ -102,22 +102,7 @@
                 
                 // Representative Dataset
                 places: [
-                    { id: 1, name: "Kovalam Beach", district: "Thiruvananthapuram", category: "Beaches", lat: 8.4020, lng: 76.9784, rating: 4.8, desc: "Iconic crescent beach with a famous lighthouse and calm waters." },
-                    { id: 2, name: "Munnar Tea Gardens", district: "Idukki", category: "Hill Stations", lat: 10.0889, lng: 77.0595, rating: 4.9, desc: "Rolling hills covered in emerald green tea plantations and cool mist." },
-                    { id: 3, name: "Alappuzha Backwaters", district: "Alappuzha", category: "Backwaters", lat: 9.4981, lng: 76.3329, rating: 4.7, desc: "The Venice of the East. Stay in luxury houseboats on serene canals." },
-                    { id: 4, name: "Fort Kochi", district: "Ernakulam", category: "Tourist Places", lat: 9.9648, lng: 76.2421, rating: 4.6, desc: "Colonial charm, Chinese fishing nets, and trendy art cafes." },
-                    { id: 5, name: "Paragon Biryani", district: "Kozhikode", category: "Food Spots", lat: 11.2588, lng: 75.7804, rating: 4.9, desc: "Legendary spot for authentic Malabar Biryani and seafood." },
-                    { id: 6, name: "Banasura Sagar Dam", district: "Wayanad", category: "Hidden Gems", lat: 11.6667, lng: 75.9242, rating: 4.5, desc: "India's largest earth dam with stunning trekking trails." },
-                    { id: 7, name: "Athirappilly Falls", district: "Thrissur", category: "Tourist Places", lat: 10.2851, lng: 76.5698, rating: 4.8, desc: "The 'Niagara of India', a majestic waterfall deep in the forest." },
-                    { id: 8, name: "Bekal Fort", district: "Kasaragod", category: "Tourist Places", lat: 12.3908, lng: 75.0402, rating: 4.6, desc: "Giant keyhole-shaped fort overlooking the Arabian Sea." },
-                    { id: 9, name: "Nelliyampathy Hills", district: "Palakkad", category: "Hill Stations", lat: 10.5342, lng: 76.6935, rating: 4.4, desc: "Orange farms and breathtaking cloud-shrouded viewpoints." },
-                    { id: 10, name: "Varkala Cliff", district: "Thiruvananthapuram", category: "Beaches", lat: 8.7371, lng: 76.7032, rating: 4.7, desc: "Unique red sandstone cliffs adjacent to the pristine beach." },
-                    { id: 11, name: "Jatayu Earth's Center", district: "Kollam", category: "Tourist Places", lat: 8.8625, lng: 76.8647, rating: 4.8, desc: "World's largest bird sculpture and adventure park." },
-                    { id: 12, name: "Vagamon Meadows", district: "Kottayam", category: "Hill Stations", lat: 9.6912, lng: 76.9048, rating: 4.5, desc: "Velvet green meadows and pine forests perfect for picnics." },
-                    { id: 13, name: "Konni Elephant Camp", district: "Pathanamthitta", category: "Hidden Gems", lat: 9.2250, lng: 76.8481, rating: 4.3, desc: "Historic training center for elephants and eco-tourism hub." },
-                    { id: 14, name: "Muzhappilangad Drive-in Beach", district: "Kannur", category: "Beaches", lat: 11.7925, lng: 75.4544, rating: 4.6, desc: "Asia's longest drive-in beach, perfect for sunset cruises." },
-                    { id: 15, name: "Tejaswini River Rafting", district: "Kasaragod", category: "Hidden Gems", lat: 12.2045, lng: 75.3621, rating: 4.4, desc: "White water rafting through dense tropical landscapes." },
-                    { id: 16, name: "Kottakkal Arya Vaidya Sala", district: "Malappuram", category: "Tourist Places", lat: 11.0022, lng: 75.9934, rating: 4.7, desc: "The global center for authentic Ayurvedic healing." }
+                    
                 ],
 
                 get filteredPlaces() {
@@ -129,24 +114,28 @@
                     });
                 },
 
-                init() {
+                                async init() {
                     this.map = L.map('map', { zoomControl: false }).setView([10.8505, 76.2711], 7);
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                        attribution: '&copy; OpenStreetMap contributors'
-                    }).addTo(this.map);
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(this.map);
                     
-                    // Add markers for all initially
-                    this.places.forEach(p => {
-                        L.circleMarker([p.lat, p.lng], {
-                            radius: 6,
-                            fillColor: "#3b82f6",
-                            color: "#fff",
-                            weight: 1,
-                            opacity: 1,
-                            fillOpacity: 0.8
-                        }).addTo(this.map).bindPopup(p.name);
-                    });
+                    try {
+                        const response = await fetch('locations.json');
+                        this.places = await response.json();
+                        
+                        this.places.forEach(p => {
+                            L.circleMarker([p.lat, p.lng], {
+                                radius: 6,
+                                fillColor: "#3b82f6",
+                                color: "#fff",
+                                weight: 1,
+                                fillOpacity: 0.8
+                            }).addTo(this.map).bindPopup(`<b>${p.name}</b>`);
+                        });
+                    } catch (e) {
+                        console.error("Error: Make sure locations.json exists!", e);
+                    }
                 },
+                                                                                
 
                 selectPlace(place) {
                     this.selectedPlace = place;
